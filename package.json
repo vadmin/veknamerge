@@ -2,7 +2,11 @@
   "name": "veknamerge",
   "displayName": "veknaMerge",
   "description": "Converts ORA insert into Merge statement",
-  "version": "0.0.1",
+  "version": "0.0.4",
+  "publisher": "Igor Hrustic",
+  "repository": {
+    "type": "git"
+  },
   "engines": {
     "vscode": "^1.94.0"
   },
@@ -18,7 +22,7 @@
     "commands": [
       {
         "command": "extension.convertInsertToMerge",
-        "title": "Convert Insert to Merge"
+        "title": "Vekna: ORA Insert to Merge"
       }
     ],
     "menus": {

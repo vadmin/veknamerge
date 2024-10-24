@@ -1,57 +1,6 @@
 import * as vscode from 'vscode';
 import { format as formatSQL } from 'sql-formatter';
 
-export function activate(context: vscode.ExtensionContext) {
-    console.log('Extension "convertInsertToMerge" is now active!');
-
-    let disposable = vscode.commands.registerCommand('extension.convertInsertToMerge', async () => {
-        const editor = vscode.window.activeTextEditor;
-        if (editor) {
-            const selection = editor.selection;
-            const text = editor.document.getText(selection);
-
-            console.log('Selected text:', text);
-
-            const mergeStatement = await convertInsertToMerge(text);
-
-            console.log('Generated merge statement:', mergeStatement);
-
-            editor.edit(editBuilder => {
-                editBuilder.replace(selection, mergeStatement);
-            }).then(success => {
-                if (success) {
-                    console.log('Text replaced successfully');
-                } else {
-                    console.error('Failed to replace text');
-                }
-            });
-        } else {
-            console.error('No active editor found');
-        }
-    });
-
-    context.subscriptions.push(disposable);
-}
-
-    /**
-     * Takes a string containing one or more SQL INSERT statements and attempts to
-     * convert each one to a MERGE statement.
-     *
-     * The function will prompt the user to select key columns for the ON condition
-     * of each MERGE statement. If the user selects no key columns, the function will
-     * skip the current INSERT statement and continue with the next one.
-     *
-     * If the user selects the "Apply to All" option, the function will use the same
-     * key columns for all subsequent INSERT statements.
-     *
-     * The function will return a string containing all the generated MERGE statements,
-     * separated by empty lines. If no valid INSERT statements are found, the function
-     * will return the original input string.
-     *
-     * @param inputText The string containing one or more SQL INSERT statements.
-     * @returns A string containing all the generated MERGE statements, separated by
-     * empty lines.
-     */
 async function convertInsertToMerge(inputText: string): Promise<string> {
     console.log('convertInsertToMerge called with:', inputText);
 
@@ -91,61 +40,16 @@ async function convertInsertToMerge(inputText: string): Promise<string> {
             // Use the shared key columns
             keyColumns = sharedKeyColumns;
         } else {
-            // Prompt the user to select key columns
-            const quickPick = vscode.window.createQuickPick();
-            quickPick.items = columns.map(col => ({ label: col }));
-            quickPick.canSelectMany = true;
-            quickPick.title = `Click to Apply To All Inserts (circle to the right) >>`;
-            quickPick.placeholder = 'Select columns to use as keys for the ON condition';
-            quickPick.buttons = [ {
-                iconPath: new vscode.ThemeIcon('circle-outline'),
-                tooltip: 'Apply to All',
-              } ];
-
-            let applyToAllThisTime = false;
-
-            const selections = await new Promise<{ selectedItems: readonly vscode.QuickPickItem[] | undefined, applyToAll: boolean }>((resolve) => {
-                quickPick.onDidAccept(() => {
-                    resolve({ selectedItems: quickPick.selectedItems, applyToAll: applyToAllThisTime });
-                    quickPick.hide();
-                });
-                quickPick.onDidTriggerButton(() => {
-                    applyToAllThisTime = !applyToAllThisTime; // toggle the state
-                  
-                    if (applyToAllThisTime) {
-                      quickPick.title = `Applying To All Inserts (Enabled)`;
-                      quickPick.buttons = [
-                        {
-                          iconPath: new vscode.ThemeIcon('circle-filled'),
-                          tooltip: 'Applying To All Inserts (Enabled)'
-                        }
-                      ];
-                    } else {
-                      quickPick.title = `Click to Apply To All Inserts (circle to the right) >>`;
-                      quickPick.buttons = [
-                        {
-                          iconPath: new vscode.ThemeIcon('circle-outline'),
-                          tooltip: 'Apply to All'
-                        }
-                      ];
-                    }
-                  });
-                quickPick.onDidHide(() => {
-                    resolve({ selectedItems: undefined, applyToAll: applyToAllThisTime });
-                });
-                quickPick.show();
-            });
-
-        
-            if (!selections.selectedItems || selections.selectedItems.length === 0) {
+            // Show the custom modal dialog
+            const selectedKeys = await showCustomModal(columns);
+            if (!selectedKeys || selectedKeys.keys.length === 0) { // Accessing length on keys array
                 vscode.window.showErrorMessage('No key columns selected for the ON condition.');
                 console.error('No key columns selected for the ON condition.');
                 continue;
             }
 
-            keyColumns = selections.selectedItems.map(item => item.label);
-
-            if (selections.applyToAll) {
+            keyColumns = selectedKeys.keys;
+            if (selectedKeys.applyToAll) {
                 applyToAll = true;
                 sharedKeyColumns = keyColumns;
             }
@@ -259,6 +163,110 @@ function formatCode(code: string): string {
         console.error('SQL Formatter error:', error);
         throw error;
     }
+}
+
+async function showCustomModal(columns: string[]): Promise<{ keys: string[], applyToAll: boolean } | undefined> {
+    const panel = vscode.window.createWebviewPanel(
+        'customModal', // Identifies the type of the webview. Used internally
+        'Select Key Columns', // Title of the panel displayed to the user
+        vscode.ViewColumn.One, // Editor column to show the new webview panel in
+        {
+            enableScripts: true // Enable scripts in the webview
+        }
+    );
+
+    panel.webview.html = getWebviewContent(columns);
+
+    return new Promise((resolve) => {
+        panel.webview.onDidReceiveMessage(
+            message => {
+                switch (message.command) {
+                    case 'submit':
+                        resolve({ keys: message.selectedKeys, applyToAll: message.applyToAll });
+                        panel.dispose();
+                        return;
+                    case 'cancel':
+                        resolve(undefined);
+                        panel.dispose();
+                        return;
+                }
+            },
+            undefined,
+            []
+        );
+    });
+}
+
+function getWebviewContent(columns: string[]): string {
+    const columnCheckboxes = columns.map(col => `
+        <div class="checkbox">
+            <input type="checkbox" id="${col}" name="${col}" value="${col}">
+            <label for="${col}">${col}</label>
+        </div>
+    `).join('\n');
+
+    return `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Select Key Columns</title>
+            <style>
+                body {
+                    font-family: Arial, sans-serif;
+                    padding: 10px;
+                }
+                .container {
+                    display: flex;
+                    flex-direction: column;
+                }
+                .checkbox {
+                    margin-bottom: 10px;
+                }
+                .button {
+                    margin-top: 20px;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h2>Select Key Columns</h2>
+                ${columnCheckboxes}
+                <div class="checkbox">
+                    <input type="checkbox" id="applyToAll" name="applyToAll">
+                    <label for="applyToAll">Apply to All</label>
+                </div>
+                <button class="button" onclick="submitSelection()">Submit</button>
+                <button class="button" onclick="cancelSelection()">Cancel</button>
+            </div>
+            <script>
+                const vscode = acquireVsCodeApi();
+
+                function submitSelection() {
+                    const selectedKeys = [];
+                    document.querySelectorAll('input[type="checkbox"]:checked').forEach(checkbox => {
+                        if (checkbox.id !== 'applyToAll') {
+                            selectedKeys.push(checkbox.value);
+                        }
+                    });
+                    const applyToAll = document.getElementById('applyToAll').checked;
+                    vscode.postMessage({
+                        command: 'submit',
+                        selectedKeys: selectedKeys,
+                        applyToAll: applyToAll
+                    });
+                }
+
+                function cancelSelection() {
+                    vscode.postMessage({
+                        command: 'cancel'
+                    });
+                }
+            </script>
+        </body>
+        </html>
+    `;
 }
 
 export function deactivate() {
