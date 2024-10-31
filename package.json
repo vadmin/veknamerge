@@ -2,8 +2,14 @@
   "name": "veknamerge",
   "displayName": "veknaMerge",
   "description": "Converts ORA insert into Merge statement",
-  "version": "0.0.4",
+  "version": "1.0.0",
   "publisher": "Igor Hrustic",
+  "license": "MIT",
+  "icon": "vekna-ora-i2m-icon-32.png",
+  "galleryBanner": {
+    "color": "#CCCCCC",
+    "theme": "dark"
+  },
   "repository": {
     "type": "git"
   },
@@ -14,25 +20,42 @@
     "Other"
   ],
   "enabledApiProposals": ["telemetry"],
-  "activationEvents": [
-    "onCommand:extension.convertInsertToMerge"
-  ],
   "main": "./dist/extension.js",
+  "activationEvents": [
+    "onCommand:extension.convertInsertToMerge",
+    "onCommand:extension.resetSettings"
+  ],
   "contributes": {
     "commands": [
       {
         "command": "extension.convertInsertToMerge",
-        "title": "Vekna: ORA Insert to Merge"
+        "title": "ORA Insert2Merge"
+      },
+      {
+        "command": "extension.resetSettings",
+        "title": "Reset Vekna Merge Settings"
       }
     ],
-    "menus": {
-      "editor/context": [
-        {
-          "command": "extension.convertInsertToMerge",
-          "when": "editorHasSelection",
-          "group": "navigation"
+    "configuration": {
+      "type": "object",
+      "title": "Ora: Vekna Merge Configuration",
+      "properties": {
+        "veknamerge.targetTableAlias": {
+          "type": "string",
+          "default": "t",
+          "description": "Alias for the target table in the MERGE statement."
+        },
+        "veknamerge.sourceTableAlias": {
+          "type": "string",
+          "default": "s",
+          "description": "Alias for the source table in the MERGE statement."
+        },
+        "veknamerge.commitEvery": {
+          "type": "number",
+          "default": 100,
+          "description": "Number of statements after which to insert a COMMIT."
         }
-      ]
+      }
     }
   },
   "scripts": {

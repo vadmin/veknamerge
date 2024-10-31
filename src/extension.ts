@@ -4,6 +4,11 @@ import { format as formatSQL } from 'sql-formatter';
 export function activate(context: vscode.ExtensionContext) {
     console.log('Extension "convertInsertToMerge" is now active!');
 
+    const config = vscode.workspace.getConfiguration('veknamerge');
+    const targetTableAlias = config.get<string>('targetTableAlias', 't');
+    const sourceTableAlias = config.get<string>('sourceTableAlias', 's');
+    const commitEvery = config.get<number>('commitEvery', 100);
+
     let disposable = vscode.commands.registerCommand('extension.convertInsertToMerge', async () => {
         const editor = vscode.window.activeTextEditor;
         if (editor) {
@@ -12,7 +17,7 @@ export function activate(context: vscode.ExtensionContext) {
 
             console.log('Selected text:', text);
 
-            const mergeStatement = await convertInsertToMerge(text);
+            const { mergeStatement, success } = await convertInsertToMerge(text, targetTableAlias, sourceTableAlias, commitEvery);
 
             console.log('Generated merge statement:', mergeStatement);
 
@@ -31,6 +36,16 @@ export function activate(context: vscode.ExtensionContext) {
     });
 
     context.subscriptions.push(disposable);
+
+    // Register the reset settings command
+    let resetDisposable = vscode.commands.registerCommand('extension.resetSettings', async () => {
+        await config.update('targetTableAlias', 't', vscode.ConfigurationTarget.Global);
+        await config.update('sourceTableAlias', 's', vscode.ConfigurationTarget.Global);
+        await config.update('commitEvery', 100, vscode.ConfigurationTarget.Global);
+        vscode.window.showInformationMessage('Vekna Merge settings have been reset to default values.');
+    });
+
+    context.subscriptions.push(resetDisposable);
 }
 
     /**
@@ -52,12 +67,14 @@ export function activate(context: vscode.ExtensionContext) {
      * @returns A string containing all the generated MERGE statements, separated by
      * empty lines.
      */
-async function convertInsertToMerge(inputText: string): Promise<string> {
-    console.log('convertInsertToMerge called with:', inputText);
+async function convertInsertToMerge(inputText: string, targetTableAlias: string, sourceTableAlias: string, commitEvery: number): Promise<{ mergeStatement: string, success: boolean }> {
+
+    console.log("convertInsertToMerge called with:", inputText);
 
     const insertRegex = /INSERT\s+INTO\s+([\w.\-]+)\s*\(([\s\S]*?)\)\s*VALUES\s*\(([\s\S]*?)\);/gi;
     let match;
     const mergeStatements: string[] = [];
+    let statementCount = 0;
 
     let applyToAll = false;
     let sharedKeyColumns: string[] = [];
@@ -150,28 +167,31 @@ async function convertInsertToMerge(inputText: string): Promise<string> {
                 sharedKeyColumns = keyColumns;
             }
         }
-
+        // Convert keyColumns to a Set for efficient lookup
+        const keyColumnsSet = new Set(keyColumns);
         // Build the SELECT statement for the USING clause
         const selectStatements = columns.map((col, i) => `${values[i]} AS ${col}`).join(',\n    ');
         const usingClause = `(
             SELECT
                 ${selectStatements}
             FROM dual
-        ) s`;
+        ) ${sourceTableAlias}`;
 
         // Build the ON condition using selected key columns
-        const onConditions = keyColumns.map(col => `s.${col} = t.${col}`).join('\n    AND ');
+        const onConditions = keyColumns.map(col => `${sourceTableAlias}.${col} = ${targetTableAlias}.${col}`).join('\n    AND ');
 
         // Build the UPDATE SET clause
-        const updateSet = columns.map(col => `t.${col} = s.${col}`).join(',\n    ');
+        // Filter out key columns for the UPDATE SET clause
+        const updateColumns = columns.filter(col => !keyColumnsSet.has(col));
+        const updateSet = updateColumns.map(col => `${targetTableAlias}.${col} = ${sourceTableAlias}.${col}`).join(',\n    ');
 
         // Build the INSERT columns and values
         const insertColumns = columns.join(',\n    ');
-        const insertValues = columns.map(col => `s.${col}`).join(',\n    ');
+        const insertValues = columns.map(col => `${sourceTableAlias}.${col}`).join(',\n    ');
 
         // Construct the full MERGE statement
         const mergeStatement = `
-MERGE INTO ${tableName} t
+MERGE INTO ${tableName} ${targetTableAlias}
 USING ${usingClause}
 ON (
     ${onConditions}
@@ -198,18 +218,23 @@ WHEN NOT MATCHED THEN
             console.error('Error formatting code:', error);
             mergeStatements.push(mergeStatement);
         }
+
+        statementCount++;
+        if (statementCount % 2 === 0) {
+            mergeStatements.push('COMMIT;');
+        }
     }
 
     if (mergeStatements.length === 0) {
         vscode.window.showErrorMessage('No valid INSERT statements found.');
         console.error('No valid INSERT statements found.');
-        return inputText;
+        return { mergeStatement: '', success: false };
     }
 
     // Combine all MERGE statements
     const combinedMergeStatements = mergeStatements.join('\n\n');
 
-    return combinedMergeStatements;
+    return { mergeStatement: combinedMergeStatements, success: true };
 }
 
 // Function to parse the values considering commas within strings and parentheses
