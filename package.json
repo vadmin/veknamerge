@@ -3,7 +3,7 @@
   "displayName": "veknaMerge",
   "description": "Converts ORA insert into Merge statement",
   "version": "1.0.2",
-  "publisher": "Vekna",
+  "publisher": "Igor Hrustic",
   "license": "MIT",
   "icon": "vekna-ora-i2m-icon-32.png",
   "galleryBanner": {
