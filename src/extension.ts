@@ -218,9 +218,9 @@ WHEN NOT MATCHED THEN
             console.error('Error formatting code:', error);
             mergeStatements.push(mergeStatement);
         }
-
+        // Increment the statement count, and add a commit statement every 'commitEvery' statements
         statementCount++;
-        if (statementCount % 2 === 0) {
+        if (statementCount % commitEvery === 0) {
             mergeStatements.push('COMMIT;');
         }
     }
@@ -230,10 +230,12 @@ WHEN NOT MATCHED THEN
         console.error('No valid INSERT statements found.');
         return { mergeStatement: '', success: false };
     }
-
+    // If we finished on a non-commit statement, add a commit
+    if (statementCount % commitEvery !== 0) {
+        mergeStatements.push('COMMIT;');
+    }
     // Combine all MERGE statements
     const combinedMergeStatements = mergeStatements.join('\n\n');
-
     return { mergeStatement: combinedMergeStatements, success: true };
 }
 
