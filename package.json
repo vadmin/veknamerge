@@ -2,7 +2,7 @@
   "name": "veknamerge",
   "displayName": "veknaMerge",
   "description": "Converts ORA insert into Merge statement",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "publisher": "Igor Hrustic",
   "license": "MIT",
   "icon": "vekna-ora-i2m-icon-32.png",
@@ -51,18 +51,18 @@
       "properties": {
         "veknamerge.targetTableAlias": {
           "type": "string",
-          "default": "t",
+          "default": "TARGET",
           "description": "Alias for the target table in the MERGE statement."
         },
         "veknamerge.sourceTableAlias": {
           "type": "string",
-          "default": "s",
+          "default": "SOURCE",
           "description": "Alias for the source table in the MERGE statement."
         },
         "veknamerge.commitEvery": {
           "type": "number",
           "default": 100,
-          "description": "Number of statements after which to insert a COMMIT."
+          "description": "Number of statements after which to insert a COMMIT.(commit is always added to the end of converted text)"
         }
       }
     }
