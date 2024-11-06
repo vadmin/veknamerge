@@ -1,4 +1,10 @@
-const path = require('path');
+// webpack.config.mjs
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 /** @type {import('webpack').Configuration} */
 const config = {
@@ -15,10 +21,7 @@ const config = {
         vscode: 'commonjs vscode'
     },
     resolve: {
-        extensions: ['.ts', '.js'],
-        alias: {
-            'uuid': require.resolve('uuid')
-        }
+        extensions: ['.ts', '.js']
     },
     module: {
         rules: [
@@ -44,12 +47,8 @@ const config = {
         {
             module: /node_modules\/prettier\/third-party\.js/,
             message: /Critical dependency: the request of a dependency is an expression/
-        },
-        {
-            module: /node_modules\/prettier\/index\.js/,
-            message: /Critical dependency: require function is used in a way in which dependencies cannot be statically extracted/
         }
     ]
 };
 
-module.exports = config;
+export default config;
