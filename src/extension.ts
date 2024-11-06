@@ -5,7 +5,6 @@ import { GitHubRelease } from './models';
 
 const GITHUB_REPO = 'vadmin/veknamerge';
 
-
 async function checkForUpdates() {
     const response = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`);
     const latestRelease = await response.json() as GitHubRelease;
