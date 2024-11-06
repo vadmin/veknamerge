@@ -1,9 +1,63 @@
 import * as vscode from 'vscode';
 import { format as formatSQL } from 'sql-formatter';
+import fetch from 'node-fetch';
+import { GitHubRelease } from './models';
+
+const GITHUB_REPO = 'vadmin/veknamerge';
+
+async function checkForUpdates() {
+    const response = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`);
+    const latestRelease = await response.json() as GitHubRelease;
+    const latestVersion = latestRelease.tag_name;
+    console.log('Latest version on github:', latestVersion);
+    const extensionId = 'igorhrustic.veknamerge';
+    const currentVersion = vscode.extensions.getExtension(extensionId)?.packageJSON.version;
+
+    if (latestVersion !== currentVersion) {
+        const update = await vscode.window.showInformationMessage(
+            `A new version (${latestVersion}) of Vekna Merge is available. Do you want to update?`,
+            'Yes', 'No'
+        );
+
+        if (update === 'Yes') {
+            await downloadAndInstallUpdate(latestRelease.assets[0].browser_download_url);
+        }
+    }
+}
+
+async function downloadAndInstallUpdate(downloadUrl: string) {
+    const response = await fetch(downloadUrl);
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const extensionId = 'igorhrustic.veknamerge';
+    const currentVersion = vscode.extensions.getExtension(extensionId)?.packageJSON.version;
+    console.log('Current veknaMerge version:', currentVersion);
+    const extension = vscode.extensions.getExtension(extensionId);
+    if (!extension) {
+        console.error(`Extension with ID '${extensionId}' not found.`);
+        return;
+    }
+
+    const extensionPath = vscode.extensions.getExtension(extensionId)?.extensionPath;
+
+    if (extensionPath) {
+        const fs = require('fs');
+        const path = require('path');
+        const updatePath = path.join(extensionPath, 'update.vsix');
+
+        fs.writeFileSync(updatePath, buffer);
+
+        await vscode.commands.executeCommand('workbench.extensions.installExtension', vscode.Uri.file(updatePath));
+        vscode.window.showInformationMessage('Vekna Merge has been updated. Please restart VSCode to apply the update.');
+    }
+}
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('Extension "convertInsertToMerge" is now active!');
 
+    console.log('Checking for updates...');
+    checkForUpdates();
+    console.log('Checking for updates... Done!');
     const config = vscode.workspace.getConfiguration('veknamerge');
     const targetTableAlias = config.get<string>('targetTableAlias', 't');
     const sourceTableAlias = config.get<string>('sourceTableAlias', 's');
@@ -48,25 +102,6 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(resetDisposable);
 }
 
-    /**
-     * Takes a string containing one or more SQL INSERT statements and attempts to
-     * convert each one to a MERGE statement.
-     *
-     * The function will prompt the user to select key columns for the ON condition
-     * of each MERGE statement. If the user selects no key columns, the function will
-     * skip the current INSERT statement and continue with the next one.
-     *
-     * If the user selects the "Apply to All" option, the function will use the same
-     * key columns for all subsequent INSERT statements.
-     *
-     * The function will return a string containing all the generated MERGE statements,
-     * separated by empty lines. If no valid INSERT statements are found, the function
-     * will return the original input string.
-     *
-     * @param inputText The string containing one or more SQL INSERT statements.
-     * @returns A string containing all the generated MERGE statements, separated by
-     * empty lines.
-     */
 async function convertInsertToMerge(inputText: string, targetTableAlias: string, sourceTableAlias: string, commitEvery: number): Promise<{ mergeStatement: string, success: boolean }> {
 
     console.log("convertInsertToMerge called with:", inputText);

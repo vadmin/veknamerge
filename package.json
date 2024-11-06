@@ -2,97 +2,104 @@
   "name": "veknamerge",
   "displayName": "veknaMerge",
   "description": "Converts ORA insert into Merge statement",
-  "version": "1.0.3",
-  "publisher": "Igor Hrustic",
+  "version": "1.1.2",
+  "publisher": "igorhrustic",
   "license": "MIT",
   "icon": "vekna-ora-i2m-icon-32.png",
   "galleryBanner": {
-    "color": "#CCCCCC",
-    "theme": "dark"
+      "color": "#CCCCCC",
+      "theme": "dark"
   },
   "repository": {
-    "type": "git"
+      "type": "git"
   },
   "engines": {
-    "vscode": "^1.94.0"
+      "vscode": "^1.94.0"
   },
   "categories": [
-    "Other"
+      "Other"
   ],
-  "enabledApiProposals": ["telemetry"],
+  "enabledApiProposals": [
+      "telemetry"
+  ],
   "main": "./dist/extension.js",
   "activationEvents": [
     "onCommand:extension.convertInsertToMerge",
-    "onCommand:extension.resetSettings"
+    "onCommand:extension.resetSettings",
+    "onStartupFinished"
   ],
   "contributes": {
-    "commands": [
-      {
-        "command": "extension.convertInsertToMerge",
-        "title": "ORA-2 Insert2Merge"
+      "commands": [
+          {
+              "command": "extension.convertInsertToMerge",
+              "title": "ORA-2 Insert2Merge"
+          },
+          {
+              "command": "extension.resetSettings",
+              "title": "Reset Vekna Merge Settings"
+          }
+      ],
+      "menus": {
+          "editor/context": [
+              {
+                  "when": "editorHasSelection",
+                  "command": "extension.convertInsertToMerge",
+                  "group": "navigation"
+              }
+          ]
       },
-      {
-        "command": "extension.resetSettings",
-        "title": "Reset Vekna Merge Settings"
+      "configuration": {
+          "type": "object",
+          "title": "Vekna Merge Configuration",
+          "properties": {
+              "veknamerge.targetTableAlias": {
+                  "type": "string",
+                  "default": "t",
+                  "description": "The alias for the target table."
+              },
+              "veknamerge.sourceTableAlias": {
+                  "type": "string",
+                  "default": "s",
+                  "description": "The alias for the source table."
+              },
+              "veknamerge.commitEvery": {
+                  "type": "number",
+                  "default": 100,
+                  "description": "Number of statements after which to insert a COMMIT.(commit is always added to the end of converted text)"
+              }
+          }
       }
-    ],
-    "menus": {
-      "editor/context": [
-        {
-          "when": "editorHasSelection",
-          "command": "extension.convertInsertToMerge",
-          "group": "navigation"
-        }
-      ]
-    },
-    "configuration": {
-      "type": "object",
-      "title": "Vekna Merge Configuration",
-      "properties": {
-        "veknamerge.targetTableAlias": {
-          "type": "string",
-          "default": "TARGET",
-          "description": "Alias for the target table in the MERGE statement."
-        },
-        "veknamerge.sourceTableAlias": {
-          "type": "string",
-          "default": "SOURCE",
-          "description": "Alias for the source table in the MERGE statement."
-        },
-        "veknamerge.commitEvery": {
-          "type": "number",
-          "default": 100,
-          "description": "Number of statements after which to insert a COMMIT.(commit is always added to the end of converted text)"
-        }
-      }
-    }
   },
   "scripts": {
-    "vscode:prepublish": "npx webpack --mode production",
-    "compile": "npx webpack --mode development",
-    "watch": "npx webpack --watch",
-    "pretest": "npm run compile-tests && npm run compile && npm run lint",
-    "lint": "eslint src",
-    "test": "npx vscode-test",
-    "package": "npx webpack --mode production --devtool hidden-source-map",
-    "compile-tests": "tsc -p . --outDir out",
-    "watch-tests": "tsc -p . -w --outDir out"
+      "compile": "npx webpack --config webpack.config.mjs --mode development",
+      "watch": "npx webpack --config webpack.config.mjs --watch",
+      "vscode:prepublish": "npm run compile",
+      "pretest": "npm run compile-tests && npm run compile && npm run lint",
+      "lint": "eslint src",
+      "test": "npx vscode-test",
+      "package": "npx webpack --mode production --devtool hidden-source-map",
+      "compile-tests": "tsc -p . --outDir out",
+      "watch-tests": "tsc -p . -w --outDir out"
   },
   "devDependencies": {
-    "@types/mocha": "^10.0.9",
-    "@types/node": "20.x",
-    "@types/prettier": "^2.7.3",
-    "@types/vscode": "^1.94.0",
-    "@typescript-eslint/eslint-plugin": "^8.10.0",
-    "@typescript-eslint/parser": "^8.7.0",
-    "@vscode/test-cli": "^0.0.10",
-    "@vscode/test-electron": "^2.4.1",
-    "eslint": "^9.13.0",
-    "sql-formatter": "^15.4.5",
-    "ts-loader": "^9.5.1",
-    "typescript": "^5.6.3",
-    "uuid": "^10.0.0",
-    "webpack": "^5.95.0",
-    "webpack-cli": "^5.1.4"
+      "@types/mocha": "^10.0.9",
+      "@types/node": "20.x",
+      "@types/node-fetch": "^2.6.11",
+      "@types/prettier": "^2.7.3",
+      "@types/vscode": "^1.94.0",
+      "@typescript-eslint/eslint-plugin": "^8.10.0",
+      "@typescript-eslint/parser": "^8.7.0",
+      "@vscode/test-cli": "^0.0.10",
+      "@vscode/test-electron": "^2.4.1",
+      "eslint": "^9.13.0",
+      "sql-formatter": "^15.4.5",
+      "ts-loader": "^9.5.1",
+      "typescript": "^5.6.3",
+      "uuid": "^10.0.0",
+      "webpack": "^5.95.0",
+      "webpack-cli": "^5.1.4"
+  },
+  "dependencies": {
+      "node-fetch": "^3.3.2"
   }
 }
