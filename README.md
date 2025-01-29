@@ -29,6 +29,10 @@ This extension requires Visual Studio Code 1.45.0 or later.
 
 ## Extension Settings
 
+To install, get vsix file from releases link, download to your pc, open VSCode, go to extensions side bar, and click on the 3 dots on topright of extensions side-bar. 
+
+From there select install from Vsix and find your download...
+
 This extension contributes the following settings:
 
 - `veknamerge.targetTableAlias`: Alias for the target table in the MERGE statement. Default is "t".
